@@ -21,11 +21,12 @@ import dash
 import dash_core_components as dcc
 import dash_html_components as html
 import dash_table
+from dash_table.Format import Format, Scheme, Sign, Symbol
 
 from dash.dependencies import Input, Output
 
 app = dash.Dash(__name__)
-# app = dash.Dash()
+# server = app.server
 
 def main_program():
 
@@ -80,10 +81,6 @@ def main_program():
 
         df_mortgage.reset_index(inplace=True)
         df_mortgage = df_mortgage.sort_values(by=['Date'], ascending=False)
-        ###############
-        # print(df_mortgage.head())
-        # print(df_mortgage.tail())
-        ################
         return df_mortgage
 
 
@@ -130,16 +127,55 @@ def main_program():
         df_us_treasury['Date'] = pd.to_datetime(df_us_treasury['Date'], format = '%Y-%m-%d').dt.date
         return df_us_treasury, df_treasury
 
-    def dash_create_charts(df_mortgage, df_us_treasury, df_treasury):        
+    def dash_create_charts(df_mortgage, df_us_treasury, df_treasury):
+        tabs_styles = {
+            'height': '44px',
+            'textAlign' : 'center'
+        }
+        tab_style = {
+            'borderBottom': '2px solid #d6d6d6',
+            'padding': '12px',
+            'fontWeight': 'bold'
+        }
+
+        tab_selected_style = {
+            'borderTop': '1px solid #d6d6d6',
+            'backgroundColor': '#119DFF',
+            'color': 'white',
+            'padding': '12px'
+        }
+
         app.layout = html.Div([
-            html.H1('Interest Rate Information'), 
-            dcc.Tabs(id= 'interest-rates', value='tab-1', children=[
-                dcc.Tab(label='Mortgage Rates', value='mortgage-rates'),
-                dcc.Tab(label='Mortgage Spreads', value='mortgage-deltas'),
-                dcc.Tab(label='Yield Curve', value='yield-curve'),
-            ]),
+            html.H1(
+                'Interest Rate Information', 
+                style = {'textAlign' : 'center'}
+            ), 
+            dcc.Tabs(
+                id= 'interest-rates', 
+                value='mortgage-rates', 
+                children=[
+                    dcc.Tab(
+                        label='Mortgage Rates', 
+                        value='mortgage-rates', 
+                        style=tab_style, 
+                        selected_style=tab_selected_style
+                    ),
+                    dcc.Tab(
+                        label='Mortgage Spreads', 
+                        value='mortgage-deltas', 
+                        style=tab_style, 
+                        selected_style=tab_selected_style
+                    ),
+                    dcc.Tab(
+                        label='Yield Curve', 
+                        value='yield-curve', 
+                        style=tab_style, 
+                        selected_style=tab_selected_style
+                    ),
+                ], style = tabs_styles
+            ),
             html.Div(id='interest-rates-content')
-        ], style = {'textAlign' : 'center'})
+        ])
 
         @app.callback(Output('interest-rates-content', 'children'),
             [Input('interest-rates', 'value')])
@@ -149,52 +185,91 @@ def main_program():
                 return (html.Div([
                     dash_table.DataTable(
                         id='datatable-int-rates',
+                        data = df_mortgage.to_dict('records'),
                         columns = [
-                            {'name': 'Date', 'id' : 'Date'},
-                            {'name': 'Freddie Mac', 'id' : 'Freddie Mac'},
-                            {'name': 'Conforming Rates', 'id' : 'WFC Conf Int Rate'},
-                            {'name': 'Jumbo Rates', 'id' : 'WFC Jumbo Int Rate'},
-                            ],
+                            {
+                            'id' : 'Date', 
+                            'name': 'Date', 
+                            'editable': False
+                            },
+                            {
+                            'id' : 'Freddie Mac', 
+                            'name': 'Freddie Mac', 
+                            'editable': True
+                            },
+                            {
+                            'id' : 'WFC Conf Int Rate', 
+                            'name': 'Wells Fargo Conforming Rates', 
+                            'editable': True
+                            },
+                            {
+                            'id' : 'WFC Jumbo Int Rate', 
+                            'name': 'Wells Fargo Jumbo Rates', 
+                            'editable': True
+                            },
+                        ],
                         virtualization = True,
-                        data = df_mortgage.to_dict('rows'),
-                        n_fixed_rows = 1,
-                        editable = True,
-                        style_cell = {'textAlign' : 'center'},
-                        style_header = {'fontWeight' : 'bold'},
-                        style_table = {'maxHeight': '300px', 'overflowY' : 'scroll'},
-                        style_cell_conditional=[
+                        fixed_rows = {
+                            'headers' : True, 
+                            'data' : 0
+                        },
+                        style_cell = {
+                            'textAlign' : 'center'
+                        },
+                        style_table = {
+                            'maxHeight': '300px', 
+                            'overflowY' : 'scroll'
+                        },
+                        style_header = {
+                            'backgroundColor': 'rgb(230,230,230)', 
+                            'fontWeight' : 'bold'
+                        },
+                        style_data_conditional=[
                             {'if': {'row_index': 'odd'}, 'backgroundColor': 'rgb(248, 248, 248)'},
                         ],
                     ),
                     html.Div(id = 'mortgage_graph')
                 ]),
+
                 html.Div(
                     [
                     dcc.Graph(
                         id='fixed interest rates',
                         figure={
                             'data': [
-                                {'x': df_mortgage['Date'],
+                                {
+                                'x': df_mortgage['Date'],
                                 'y': df_mortgage['Freddie Mac'], 
                                 'type': 'line',
-                                'name': 'Freddie Mac'
+                                'name': 'Freddie Mac Interest Rates'
                                 },
-                                {'x': df_mortgage['Date'],
+                                {
+                                'x': df_mortgage['Date'],
                                 'y': df_mortgage['WFC Conf Int Rate'], 
                                 'type': 'line',
-                                'name': 'Conforming Rates'
+                                'name': 'Wells Fargo Conforming Rates'
                                 },
-                                {'x': df_mortgage['Date'],
+                                {
+                                'x': df_mortgage['Date'],
                                 'y': df_mortgage['WFC Jumbo Int Rate'], 
                                 'type': 'line',
-                                'name': 'Jumbo Rates'
+                                'name': 'Wells Fargo Jumbo Rates'
                                 },
                             ],
                             'layout' : {
-                                'xaxis' : {'title' : '<b>Date<b>'},
-                                'yaxis' : {'title' : '<b>Interest Rate<b>'},
+                                'title' : '<b>30 Year Fixed Rate Mortgages <br> Freddie Mac Vs. Wells Fargo<b>',
+                                'xaxis' : {
+                                    'title' : '<b>Date<b>'
+                                },
+                                'yaxis' : {
+                                    'title' : '<b>Interest Rate<b>'
+                                },
                                 'height' : 500,
-                                'margin' : {"t": 80, "l": 70, "r": 20}, 
+                                'margin' : {
+                                    "t": 80, 
+                                    "l": 70, 
+                                    "r": 20
+                                }, 
                                 'hovermode': 'closest',
                                 },
                             }
@@ -209,17 +284,51 @@ def main_program():
                         id='datatable-deltas',
                         data = df_mortgage.to_dict('rows'),
                         columns = [
-                            {'name': 'Date', 'id' : 'Date'},
-                            {'name': 'Conf minus Freddie', 'id' : 'Conf minus Freddie'},
-                            {'name': 'Jumbo minus Freddie', 'id' : 'Jumbo minus Freddie'},
-                            ],
+                            {
+                            'id' : 'Date', 
+                            'name': 'Date',
+                            'editable': False
+                            }, 
+                            {
+                            'id' : 'Conf minus Freddie', 
+                            'name': 'Wells Fargo Conforming Rates minus Freddie',
+                            'editable': True, 
+                            'type' : 'numeric',
+                            'format' : Format(
+                                precision = 3,
+                                scheme = Scheme.fixed,
+                                sign = Sign.parantheses),
+                            }, 
+                            {
+                            'id' : 'Jumbo minus Freddie', 
+                            'name': 'Wells Fargo Jumbo Rates minus Freddie',
+                            'editable': True, 
+                            'type' : 'numeric',
+                            'format' : Format(
+                                precision = 3,
+                                scheme = Scheme.fixed,
+                                sign = Sign.parantheses),
+                            },
+                        ],
                         virtualization = True,
-                        n_fixed_rows = 1,
-                        style_cell = {'textAlign' : 'center'},
-                        style_header = {'fontWeight' : 'bold'},
-                        style_table = {'maxHeight': '300px', 'overflowY' : 'scroll'},
-                        style_cell_conditional=[
-                            {'if': {'row_index': 'odd'}, 'backgroundColor': 'rgb(248, 248, 248)'},
+                        fixed_rows = {
+                            'headers' : True, 
+                            'data' : 0
+                        },
+                        style_cell = {
+                            'textAlign' : 'center'
+                        },
+                        style_header = {
+                            'fontWeight' : 'bold',
+                            'backgroundColor': 'rgb(230,230,230)', 
+                        },
+                        style_table = {
+                            'maxHeight': '300px', 
+                            'overflowY' : 'scroll'
+                        },
+                        style_data_conditional=[
+                            {'if': {'row_index': 'odd'}, 
+                            'backgroundColor': 'rgb(248, 248, 248)'},
                         ],
                     ),                   
                     html.Div(id = 'delta_graph')
@@ -230,22 +339,29 @@ def main_program():
                         id='fixed interest rates',
                         figure={
                             'data': [
-                                {'x': df_mortgage['Date'],
+                                {
+                                'x': df_mortgage['Date'],
                                 'y': df_mortgage['Conf minus Freddie'], 
                                 'type': 'line',
-                                'name': 'Conf minus Freddie'
+                                'name': 'Wells Fargo Conforming <br> Rates minus Freddie'
                                 },
-                                {'x': df_mortgage['Date'],
+                                {
+                                'x': df_mortgage['Date'],
                                 'y': df_mortgage['Jumbo minus Freddie'], 
                                 'type': 'line',
-                                'name': 'Jumbo minus Freddie'
+                                'name': 'Wells Fargo Jumbo <br> Rates minus Freddie'
                                 },
                             ],
                             'layout' : {
+                                'title' : '<b>Spreads in Mortgage Interest Rates<br>30 Year Fixed Rate Mortgage<b>',
                                 'xaxis' : {'title' : '<b>Date<b>'},
                                 'yaxis' : {'title' : '<b>Interest Rate<b>'},
                                 'height' : 500,
-                                'margin' : {"t": 80, "l": 70, "r": 20}, 
+                                'margin' : {
+                                    "t": 80, 
+                                    "l": 70, 
+                                    "r": 20
+                                }, 
                                 'hovermode': 'closest',
                                 },
                             }
@@ -262,16 +378,32 @@ def main_program():
                         data = df_treasury.to_dict('rows'),
                         columns=[{"name": i, "id": i} for i in df_treasury.columns],
                         virtualization = True,
-                        n_fixed_rows = 1,
-                        pagination_mode = False,
-                        style_cell = {'textAlign' : 'center'},
-                        style_header = {'fontWeight' : 'bold'},
-                        style_table = {'maxHeight': '300px', 'overflowY' : 'scroll'},
-                        style_cell_conditional=[
-                            {'if': {'row_index': 'odd'}, 'backgroundColor': 'rgb(248, 248, 248)'}
-                        ] + [
-                                {'if': {'column_id' : key}, 'width' : value}
-                                for key, value in at.col_dict.items()
+                        page_action = 'none',
+                        editable = False,
+                        fixed_rows = {
+                            'headers' : True, 'data' : 0
+                        },
+                        style_cell = {
+                            'textAlign' : 'center'
+                        },
+                        style_header = {
+                            'backgroundColor': 'rgb(230,230,230)', 
+                            'fontWeight' : 'bold'
+                        },
+                        style_table = {
+                            'maxHeight': '300px',
+                            'overflowY' : 'scroll'
+                        },
+                        style_data_conditional=[
+                            {
+                                'if': {'row_index': 'odd'}, 
+                                'backgroundColor': 'rgb(248, 248, 248)'
+                            }
+                        ],
+                        style_cell_conditional = [
+                            {
+                                'if': {'column_id' : key}, 'width' : value
+                            }   for key, value in at.col_dict.items()
                         ],
                     ),
                     html.Div(id = 'yield_curve_data')
@@ -290,15 +422,24 @@ def main_program():
 
                             ],
                             'layout' : {
-                                'xaxis' : {'title' : '<b>Tenor<b>', 'tickmode' : 'array',
+                                'title' : '<b>Yield Curve End of Quarter - Eight Quarters Running<b>',
+                                'xaxis' : {
+                                    'title' : '<b>Tenor<b>', 
+                                    'tickmode' : 'array',
                                     'tickvals' : [i for i in range(1, len(df_us_treasury.columns))],
                                     'ticktext' : 
-                                    [i for i in df_us_treasury.columns.tolist() if i != 'Date'],
-                                    'range' : ['1', len(df_us_treasury.columns)-1]
+                                        [i for i in df_us_treasury.columns.tolist() if i != 'Date'],
+                                        'range' : ['1', len(df_us_treasury.columns)-1]
                                     },
-                                'yaxis' : {'title' : '<b>Interest Rate<b>'},
+                                'yaxis' : {
+                                    'title' : '<b>Interest Rate<b>'
+                                },
                                 'height' : 500,
-                                'margin' : {"t": 80, "l": 70, "r": 20}, 
+                                'margin' : {
+                                    "t": 80, 
+                                    "l": 70, 
+                                    "r": 20
+                                }, 
                                 'hovermode': 'closest',
                                 },
                             }
@@ -341,12 +482,18 @@ def main_program():
 
     # Manipulate data for use in dash
     df_mortgage = manipulate_mortgage_data(df_freddie_mac, df_wfc_conf_30, df_wfc_jumbo_30)
+    df_mortgage.Date = pd.DatetimeIndex(df_mortgage.Date).strftime("%Y-%m-%d")
+
     df_us_treasury, df_treasury = manipulate_yield_data(df_treasury)
+    df_us_treasury.Date = pd.DatetimeIndex(df_us_treasury.Date).strftime("%Y-%m-%d")
+    df_treasury.Date = pd.DatetimeIndex(df_treasury.Date).strftime("%Y-%m-%d")
 
     # Create datatables and graphs
     dash_create_charts(df_mortgage, df_us_treasury, df_treasury)
+    print('Complete main program')
     app.run_server(debug=True)
-
+   
 
 if __name__ == '__main__':
+    print('Starting main program')
     main_program()
